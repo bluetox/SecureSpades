@@ -1,0 +1,13 @@
+[package]
+name = "secureSpades"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+curve25519-dalek = "5.0"
+getrandom = "0.3"
+sha2 = "0.10"
+
+# Optimize cryptographic dependencies even in dev/test profile
+[profile.dev.package."*"]
+opt-level = 3

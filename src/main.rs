@@ -1,15 +1,24 @@
-#![allow(non_snake_case)]
-
-use secureSpades::KeyPair;
-use secureSpades::cards::{CardProvider, IpsoCardProvider, decode_card};
+use secureSpades::cards::{CardProvider, decode_card};
 use secureSpades::elgamal::{
     decrypt_after_partials, encrypt_deck, partial_decrypt, remove_partial_decryption,
 };
+use rand::rngs::StdRng;
 use secureSpades::group::generator;
 use secureSpades::keys::{generate_keypair, global_public_key};
-use secureSpades::proof::SchnorrProof;
 use secureSpades::shuffle::{prove_shuffle, shuffle_and_keep_witness, verify_shuffle};
 
+ 
+struct IpsoCardProvider;
+
+impl CardProvider for IpsoCardProvider {
+    type Deck = [u16; Self::DECK_SIZE as usize];
+
+    const DECK_SIZE: u16 = 90;
+
+    fn get_deck() -> Self::Deck {
+        std::array::from_fn(|i| (i + 1) as u16)
+    }
+}
 fn main() {
     println!("=== SecureSpades Core Cryptography Protocol Demo ===");
     let g = generator();
@@ -35,7 +44,7 @@ fn main() {
 
     println!("\n[5] Sequential shuffling by 4 players with ZK shuffle proofs...");
 
-    let (deck1, perm1, rand1) = shuffle_and_keep_witness::<IpsoCardProvider>(&deck0, &global_pk);
+    let (deck1, perm1, rand1) = shuffle_and_keep_witness::<IpsoCardProvider, StdRng>(&deck0, &global_pk);
 
     let proof_shuffle1 =
         prove_shuffle::<IpsoCardProvider>(&deck0, &deck1, &perm1, &rand1, &global_pk);

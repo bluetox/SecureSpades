@@ -1,4 +1,8 @@
+//! Implementation of the Secure Spades protocol
+//! 
+#![warn(missing_docs)]
 #![allow(non_snake_case)]
+
 
 pub mod cards;
 pub mod elgamal;

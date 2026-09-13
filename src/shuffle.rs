@@ -1,6 +1,7 @@
 use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT, ristretto::RistrettoPoint, scalar::Scalar,
 };
+use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest, Sha512};
 
 use crate::cards::CardProvider;
@@ -68,20 +69,20 @@ pub fn shuffle_with_parameters<C: CardProvider>(
     shuffled
 }
 
-pub fn shuffle<C: CardProvider>(
+pub fn shuffle<C: CardProvider, R: CryptoRng + RngCore + Default>(
     deck: &[Ciphertext],
     global_pk: &RistrettoPoint,
 ) -> Vec<Ciphertext> {
-    let (shuffled, _, _) = shuffle_and_keep_witness::<C>(deck, global_pk);
+    let (shuffled, _, _) = shuffle_and_keep_witness::<C, R>(deck, global_pk);
     shuffled
 }
 
-pub fn shuffle_and_keep_witness<C: CardProvider>(
+pub fn shuffle_and_keep_witness<C: CardProvider, R: CryptoRng + RngCore + Default>(
     deck: &[Ciphertext],
     global_pk: &RistrettoPoint,
 ) -> (Vec<Ciphertext>, Vec<usize>, Vec<Scalar>) {
     let permutation = random_permutation(C::DECK_SIZE as usize);
-    let randomness: Vec<Scalar> = (0..C::DECK_SIZE).map(|_| random_scalar()).collect();
+    let randomness: Vec<Scalar> = (0..C::DECK_SIZE).map(|_| random_scalar::<R>()).collect();
     let shuffled = shuffle_with_parameters::<C>(deck, &permutation, &randomness, global_pk);
     (shuffled, permutation, randomness)
 }
@@ -97,7 +98,7 @@ pub struct ShuffleProof {
     pub card_proofs: Vec<CardShuffleProof>,
 }
 
-pub fn prove_shuffle<C: CardProvider>(
+pub fn prove_shuffle<C: CardProvider, R: CryptoRng + RngCore + Default>(
     input: &[Ciphertext],
     output: &[Ciphertext],
     permutation: &[usize],
@@ -125,13 +126,13 @@ pub fn prove_shuffle<C: CardProvider>(
             let delta_c2 = out_j.c2 - input[l].c2;
 
             if l == real_branch {
-                nonce_w = random_scalar();
+                nonce_w = random_scalar::<R>();
                 let a_real = nonce_w * RISTRETTO_BASEPOINT_POINT;
                 let b_real = nonce_w * global_pk;
                 commitments.push((a_real, b_real));
             } else {
-                let c_l = random_scalar();
-                let s_l = random_scalar();
+                let c_l = random_scalar::<R>();
+                let s_l = random_scalar::<R>();
                 challenges[l] = c_l;
                 responses[l] = s_l;
 

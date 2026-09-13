@@ -1,4 +1,5 @@
 use curve25519_dalek::{ristretto::RistrettoPoint, scalar::Scalar};
+use rand_core::{CryptoRng, RngCore};
 use sha2::{Digest, Sha512};
 
 use crate::group::random_scalar;
@@ -10,8 +11,8 @@ pub struct SchnorrProof {
 }
 
 impl SchnorrProof {
-    pub fn prove(sk: &Scalar, pk: &RistrettoPoint, generator_point: &RistrettoPoint) -> Self {
-        let r = random_scalar();
+    pub fn prove<R: CryptoRng + RngCore + Default>(sk: &Scalar, pk: &RistrettoPoint, generator_point: &RistrettoPoint) -> Self {
+        let r = random_scalar::<R>();
         let commitment = r * generator_point;
         let challenge = compute_challenge(generator_point, pk, &commitment);
         let response = r + challenge * sk;

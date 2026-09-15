@@ -6,8 +6,12 @@ edition = "2024"
 [dependencies]
 curve25519-dalek = "5.0"
 getrandom = "0.3"
+rand_core = "0.9"
+rand = "0.9"
 sha2 = "0.10"
 
-# Optimize cryptographic dependencies even in dev/test profile
 [profile.dev.package."*"]
 opt-level = 3
+
+[build]
+rustflags = ["-C", "target-cpu=native"]

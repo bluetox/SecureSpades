@@ -8,18 +8,6 @@ pub trait CardProvider {
     fn get_deck() -> Self::Deck;
 }
 
-pub struct IpsoCardProvider;
-
-impl CardProvider for IpsoCardProvider {
-    type Deck = [u16; Self::DECK_SIZE as usize];
-
-    const DECK_SIZE: u16 = 90;
-
-    fn get_deck() -> Self::Deck {
-        std::array::from_fn(|i| (i + 1) as u16)
-    }
-}
-
 pub fn encode_card(id: u16) -> RistrettoPoint {
     Scalar::from(id as u64) * RISTRETTO_BASEPOINT_POINT
 }

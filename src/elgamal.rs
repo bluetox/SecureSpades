@@ -1,6 +1,7 @@
 use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT, ristretto::RistrettoPoint, scalar::Scalar,
 };
+use rand_core::{CryptoRng, RngCore};
 
 use crate::cards::{CardProvider, encode_card};
 use crate::group::random_scalar;
@@ -11,8 +12,12 @@ pub struct Ciphertext {
     pub c2: RistrettoPoint,
 }
 
-pub fn encrypt(message: &RistrettoPoint, pk: &RistrettoPoint) -> Ciphertext {
-    let r = random_scalar();
+pub fn encrypt<R: CryptoRng + RngCore>(
+    message: &RistrettoPoint,
+    pk: &RistrettoPoint,
+    rng: &mut R,
+) -> Ciphertext {
+    let r = random_scalar(rng);
     encrypt_with_randomness(message, pk, &r)
 }
 
@@ -31,23 +36,31 @@ pub fn decrypt(ciphertext: &Ciphertext, sk: &Scalar) -> RistrettoPoint {
     ciphertext.c2 - sk * ciphertext.c1
 }
 
-pub fn encrypt_card(card_id: u16, global_pk: &RistrettoPoint) -> Ciphertext {
+pub fn encrypt_card<R: CryptoRng + RngCore>(
+    card_id: u16,
+    global_pk: &RistrettoPoint,
+    rng: &mut R,
+) -> Ciphertext {
     let message = encode_card(card_id);
-    Ciphertext {
-        c1: RISTRETTO_BASEPOINT_POINT,
-        c2: message + global_pk,
-    }
+    encrypt(&message, global_pk, rng)
 }
 
-pub fn encrypt_deck<C: CardProvider>(global_pk: &RistrettoPoint) -> Vec<Ciphertext> {
+pub fn encrypt_deck<C: CardProvider, R: CryptoRng + RngCore>(
+    global_pk: &RistrettoPoint,
+    rng: &mut R,
+) -> Vec<Ciphertext> {
     C::get_deck()
         .into_iter()
-        .map(|id| encrypt_card(id, global_pk))
+        .map(|id| encrypt_card(id, global_pk, rng))
         .collect()
 }
 
-pub fn randomize(ciphertext: &Ciphertext, global_pk: &RistrettoPoint) -> Ciphertext {
-    let r = random_scalar();
+pub fn randomize<R: CryptoRng + RngCore>(
+    ciphertext: &Ciphertext,
+    global_pk: &RistrettoPoint,
+    rng: &mut R,
+) -> Ciphertext {
+    let r = random_scalar(rng);
     randomize_with_randomness(ciphertext, global_pk, &r)
 }
 

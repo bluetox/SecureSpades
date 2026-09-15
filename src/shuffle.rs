@@ -30,23 +30,24 @@ pub fn validate_permutation(
     Ok(())
 }
 
-pub fn random_permutation(len: usize) -> Vec<usize> {
+pub fn random_permutation<R: CryptoRng + RngCore>(len: usize, rng: &mut R) -> Vec<usize> {
     let mut p: Vec<usize> = (0..len).collect();
     for i in (1..len).rev() {
-        let j = random_bounded_usize(i + 1);
+        let j = random_bounded_usize(i + 1, rng);
         p.swap(i, j);
     }
     p
 }
 
-fn random_bounded_usize(bound: usize) -> usize {
-    let limit = 256 - (256 % bound);
-    let mut byte = [0u8; 1];
+fn random_bounded_usize<R: CryptoRng + RngCore>(bound: usize, rng: &mut R) -> usize {
+    let bits_needed = usize::BITS - bound.leading_zeros();
+    let mask = (1usize << bits_needed) - 1;
     loop {
-        getrandom::fill(&mut byte).expect("failed to obtain randomness");
-        let val = byte[0] as usize;
-        if val < limit {
-            return val % bound;
+        let mut buf = [0u8; 8];
+        rng.fill_bytes(&mut buf);
+        let val = usize::from_le_bytes(buf) & mask;
+        if val < bound {
+            return val;
         }
     }
 }
@@ -69,20 +70,22 @@ pub fn shuffle_with_parameters<C: CardProvider>(
     shuffled
 }
 
-pub fn shuffle<C: CardProvider, R: CryptoRng + RngCore + Default>(
+pub fn shuffle<C: CardProvider, R: CryptoRng + RngCore>(
     deck: &[Ciphertext],
     global_pk: &RistrettoPoint,
+    rng: &mut R,
 ) -> Vec<Ciphertext> {
-    let (shuffled, _, _) = shuffle_and_keep_witness::<C, R>(deck, global_pk);
+    let (shuffled, _, _) = shuffle_and_keep_witness::<C, R>(deck, global_pk, rng);
     shuffled
 }
 
-pub fn shuffle_and_keep_witness<C: CardProvider, R: CryptoRng + RngCore + Default>(
+pub fn shuffle_and_keep_witness<C: CardProvider, R: CryptoRng + RngCore>(
     deck: &[Ciphertext],
     global_pk: &RistrettoPoint,
+    rng: &mut R,
 ) -> (Vec<Ciphertext>, Vec<usize>, Vec<Scalar>) {
-    let permutation = random_permutation(C::DECK_SIZE as usize);
-    let randomness: Vec<Scalar> = (0..C::DECK_SIZE).map(|_| random_scalar::<R>()).collect();
+    let permutation = random_permutation(C::DECK_SIZE as usize, rng);
+    let randomness: Vec<Scalar> = (0..C::DECK_SIZE).map(|_| random_scalar(rng)).collect();
     let shuffled = shuffle_with_parameters::<C>(deck, &permutation, &randomness, global_pk);
     (shuffled, permutation, randomness)
 }
@@ -90,6 +93,7 @@ pub fn shuffle_and_keep_witness<C: CardProvider, R: CryptoRng + RngCore + Defaul
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CardShuffleProof {
     pub challenges: Vec<Scalar>,
+
     pub responses: Vec<Scalar>,
 }
 
@@ -98,12 +102,13 @@ pub struct ShuffleProof {
     pub card_proofs: Vec<CardShuffleProof>,
 }
 
-pub fn prove_shuffle<C: CardProvider, R: CryptoRng + RngCore + Default>(
+pub fn prove_shuffle<C: CardProvider, R: CryptoRng + RngCore>(
     input: &[Ciphertext],
     output: &[Ciphertext],
     permutation: &[usize],
     randomness: &[Scalar],
     global_pk: &RistrettoPoint,
+    rng: &mut R,
 ) -> ShuffleProof {
     let n = input.len();
     validate_permutation(permutation, C::DECK_SIZE as usize).expect("Invalid permutation");
@@ -126,13 +131,13 @@ pub fn prove_shuffle<C: CardProvider, R: CryptoRng + RngCore + Default>(
             let delta_c2 = out_j.c2 - input[l].c2;
 
             if l == real_branch {
-                nonce_w = random_scalar::<R>();
+                nonce_w = random_scalar(rng);
                 let a_real = nonce_w * RISTRETTO_BASEPOINT_POINT;
                 let b_real = nonce_w * global_pk;
                 commitments.push((a_real, b_real));
             } else {
-                let c_l = random_scalar::<R>();
-                let s_l = random_scalar::<R>();
+                let c_l = random_scalar(rng);
+                let s_l = random_scalar(rng);
                 challenges[l] = c_l;
                 responses[l] = s_l;
 
